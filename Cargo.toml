@@ -92,7 +92,7 @@ log = { version = "0.4", features = ["std", "release_max_level_info"] }
 midi-consts = "0.1"
 nih_log = "0.3.1"
 parking_lot = "0.12"
-raw-window-handle = "0.5"
+raw-window-handle = "0.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 widestring = "1.0.0-beta.1"
@@ -103,7 +103,7 @@ assert_no_alloc = { git = "https://github.com/robbert-vdh/rust-assert-no-alloc.g
 # Used for the `standalone` feature
 # NOTE: OpenGL support is not needed here, but rust-analyzer gets confused when
 #       some crates do use it and others don't
-baseview = { git = "https://github.com/RustAudio/baseview.git", rev = "579130ecb4f9f315ae52190af42f0ea46aeaa4a2", features = ["opengl"], optional = true }
+baseview = { git = "https://github.com/byroneverson/baseview.git", features = ["opengl"], optional = true }
 # All the claps!
 clap = { version = "4.1.8", features = ["derive", "wrap_help"], optional = true }
 cpal = { version = "0.15", optional = true }

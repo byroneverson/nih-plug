@@ -3,7 +3,9 @@ use baseview::{EventStatus, Window, WindowHandler, WindowOpenOptions};
 use crossbeam::channel::{self, Sender};
 use crossbeam::queue::ArrayQueue;
 use parking_lot::Mutex;
-use raw_window_handle::HasRawWindowHandle;
+use raw_window_handle::{
+    HasWindowHandle
+};
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -345,20 +347,23 @@ impl<P: Plugin, B: Backend<P>> Wrapper<P, B> {
                         gl_config: None,
                     },
                     move |window| {
-                        let parent_handle = match window.raw_window_handle() {
-                            raw_window_handle::RawWindowHandle::Xlib(handle) => {
-                                ParentWindowHandle::X11Window(handle.window as u32)
+                        let parent_handle = {
+                            let window_handle = window.window_handle().expect("Failed to get window handle");
+                            match window_handle.as_raw() {
+                                raw_window_handle::RawWindowHandle::Xlib(handle) => {
+                                    ParentWindowHandle::X11Window(handle.window as u32)
+                                }
+                                raw_window_handle::RawWindowHandle::Xcb(handle) => {
+                                    ParentWindowHandle::X11Window(handle.window.get())
+                                }
+                                raw_window_handle::RawWindowHandle::AppKit(handle) => {
+                                    ParentWindowHandle::AppKitNsView(handle.ns_view.as_ptr())
+                                }
+                                raw_window_handle::RawWindowHandle::Win32(handle) => {
+                                    ParentWindowHandle::Win32Hwnd(handle.hwnd.get() as *mut std::ffi::c_void)
+                                }
+                                handle => unimplemented!("Unsupported window handle: {handle:?}"),
                             }
-                            raw_window_handle::RawWindowHandle::Xcb(handle) => {
-                                ParentWindowHandle::X11Window(handle.window)
-                            }
-                            raw_window_handle::RawWindowHandle::AppKit(handle) => {
-                                ParentWindowHandle::AppKitNsView(handle.ns_view)
-                            }
-                            raw_window_handle::RawWindowHandle::Win32(handle) => {
-                                ParentWindowHandle::Win32Hwnd(handle.hwnd)
-                            }
-                            handle => unimplemented!("Unsupported window handle: {handle:?}"),
                         };
 
                         // TODO: This spawn function should be able to fail and return an error, but

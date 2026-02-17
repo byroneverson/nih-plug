@@ -1,9 +1,15 @@
 //! Traits for working with plugin editors.
 
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{
+    HasWindowHandle, HasDisplayHandle,
+    WindowHandle, DisplayHandle,
+    RawWindowHandle, RawDisplayHandle, HandleError
+};
 use std::any::Any;
 use std::ffi::c_void;
 use std::sync::Arc;
+use std::ptr::NonNull;
+use std::num::NonZero;
 
 use crate::prelude::GuiContext;
 
@@ -99,24 +105,45 @@ pub enum ParentWindowHandle {
     Win32Hwnd(*mut c_void),
 }
 
-unsafe impl HasRawWindowHandle for ParentWindowHandle {
-    fn raw_window_handle(&self) -> RawWindowHandle {
-        match *self {
+impl HasWindowHandle for ParentWindowHandle {
+    fn window_handle(&self) -> Result<WindowHandle<'_>, HandleError> {
+        let raw = match *self {
             ParentWindowHandle::X11Window(window) => {
-                let mut handle = raw_window_handle::XcbWindowHandle::empty();
-                handle.window = window;
+                let mut handle = raw_window_handle::XcbWindowHandle::new(
+                    NonZero::<u32>::new(window).ok_or(HandleError::Unavailable)?
+                );
                 RawWindowHandle::Xcb(handle)
             }
             ParentWindowHandle::AppKitNsView(ns_view) => {
-                let mut handle = raw_window_handle::AppKitWindowHandle::empty();
-                handle.ns_view = ns_view;
+                let handle = raw_window_handle::AppKitWindowHandle::new(
+                    NonNull::new(ns_view as *mut _).ok_or(HandleError::Unavailable)?
+                );
                 RawWindowHandle::AppKit(handle)
             }
             ParentWindowHandle::Win32Hwnd(hwnd) => {
-                let mut handle = raw_window_handle::Win32WindowHandle::empty();
-                handle.hwnd = hwnd;
+                let handle = raw_window_handle::Win32WindowHandle::new(
+                    NonZero::<isize>::new(hwnd as isize).ok_or(HandleError::Unavailable)?
+                );
                 RawWindowHandle::Win32(handle)
             }
-        }
+        };
+        unsafe { Ok(WindowHandle::borrow_raw(raw)) }
+    }
+}
+
+impl HasDisplayHandle for ParentWindowHandle {
+    fn display_handle(&self) -> Result<DisplayHandle<'_>, HandleError> {
+        let raw = match *self {
+            ParentWindowHandle::AppKitNsView(_) => {
+                RawDisplayHandle::AppKit(raw_window_handle::AppKitDisplayHandle::new())
+            }
+            ParentWindowHandle::Win32Hwnd(_) => {
+                RawDisplayHandle::Windows(raw_window_handle::WindowsDisplayHandle::new())
+            }
+            ParentWindowHandle::X11Window(_) => {
+                return Err(HandleError::NotSupported);
+            }
+        };
+        unsafe { Ok(DisplayHandle::borrow_raw(raw)) }
     }
 }
